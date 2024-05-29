@@ -1,0 +1,63 @@
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# Sample data
+rooms = [
+    {"room_id": 1, "type": "single", "price": 100, "available": True},
+    {"room_id": 2, "type": "double", "price": 150, "available": True},
+    {"room_id": 3, "type": "suite", "price": 250, "available": True},
+]
+
+bookings = []
+
+# Helper function to find room by ID
+def find_room_by_id(room_id):
+    return next((room for room in rooms if room["room_id"] == room_id), None)
+
+@app.route('/rooms', methods=['GET'])
+def get_rooms():
+    return jsonify(rooms)
+
+@app.route('/book', methods=['POST'])
+def book_room():
+    data = request.get_json()
+    room_id = data.get('room_id')
+    customer_name = data.get('customer_name')
+
+    room = find_room_by_id(room_id)
+    if room and room['available']:
+        booking_id = len(bookings) + 1
+        booking = {
+            "booking_id": booking_id,
+            "room_id": room_id,
+            "customer_name": customer_name
+        }
+        bookings.append(booking)
+        room['available'] = False
+        return jsonify({"message": "Room booked successfully!", "booking_id": booking_id}), 201
+    else:
+        return jsonify({"message": "Room not available"}), 400
+
+@app.route('/booking/<int:booking_id>', methods=['GET'])
+def get_booking(booking_id):
+    booking = next((b for b in bookings if b["booking_id"] == booking_id), None)
+    if booking:
+        return jsonify(booking)
+    else:
+        return jsonify({"message": "Booking not found"}), 404
+
+@app.route('/cancel/<int:booking_id>', methods=['POST'])
+def cancel_booking(booking_id):
+    booking = next((b for b in bookings if b["booking_id"] == booking_id), None)
+    if booking:
+        room = find_room_by_id(booking['room_id'])
+        if room:
+            room['available'] = True
+        bookings.remove(booking)
+        return jsonify({"message": "Booking cancelled successfully!"}), 200
+    else:
+        return jsonify({"message": "Booking not found"}), 404
+
+if __name__ == '__main__':
+    app.run(debug=True)
